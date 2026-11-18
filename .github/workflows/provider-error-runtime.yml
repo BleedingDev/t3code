@@ -1,0 +1,54 @@
+name: Provider error runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - packages/provider-core/src/server/failure.ts
+      - packages/provider-core/src/server/failure.test.ts
+      - .github/workflows/provider-error-runtime.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.repository == 'BleedingDev/t3code'
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=t3... --filter=@t3tools/provider-core... --filter=@t3tools/scripts...
+
+      - name: Verify complete provider diagnostics
+        run: vp test run packages/provider-core/src/server/failure.test.ts
+
+      - name: Build matching macOS ARM64 runtime
+        env:
+          APP_VERSION: 0.1.11-nightly.20261118.4877
+          T3CODE_TELEMETRY_CHANNEL: nightly
+        run: node apps/server/scripts/cli.ts build-exe --verbose --target darwin-arm64
+
+      - name: Sign and identify executable
+        run: |
+          codesign --force --sign - apps/server/dist-exe/t3
+          file apps/server/dist-exe/t3
+          shasum -a 256 apps/server/dist-exe/t3
+          git rev-parse HEAD
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: t3-provider-errors-darwin-arm64
+          path: apps/server/dist-exe/t3
+          if-no-files-found: error
+          retention-days: 7
