@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: provider-error-runtime
+  cancel-in-progress: true
+
 jobs:
   build:
     if: github.repository == 'BleedingDev/t3code'
@@ -33,7 +37,12 @@ jobs:
           install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/provider-core... --filter=@t3tools/scripts...
 
       - name: Verify complete provider diagnostics
-        run: vp test run packages/provider-core/src/server/failure.test.ts packages/contracts/src/orchestrationV2.test.ts
+        working-directory: packages/provider-core
+        run: vp test run --config ../../vite.config.ts src/server/failure.test.ts
+
+      - name: Verify complete diagnostic transport
+        working-directory: packages/contracts
+        run: vp test run --config ../../vite.config.ts src/orchestrationV2.test.ts
 
       - name: Build matching client contracts and assets
         env:
